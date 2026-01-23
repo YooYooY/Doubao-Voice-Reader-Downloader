@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "豆包语音下载助手 | Doubao Voice Reader Downloader",
+  "version": "1.0",
+  "description": "捕获并下载豆包对话的语音朗读音频。",
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "permissions": [
+    "scripting",
+    "activeTab"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.doubao.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["ui.js", "logic.js"],
+      "matches": ["*://*.doubao.com/*"]
+    }
+  ]
+}
