@@ -7,11 +7,21 @@ class DoubaoTTSUI {
     this.downloadBtn = null;
     this.onDownload = null;
     this.onClear = null;
+    this.initScheduled = false;
+    this.downloadExt = null;
+    this.sizeBytes = 0;
     this.init();
   }
 
   init() {
     if (document.getElementById('doubao-tts-ui')) return;
+    if (!document.body) {
+      if (!this.initScheduled) {
+        this.initScheduled = true;
+        document.addEventListener('DOMContentLoaded', () => this.init(), { once: true });
+      }
+      return;
+    }
 
     const container = document.createElement('div');
     container.id = 'doubao-tts-ui';
@@ -169,13 +179,13 @@ class DoubaoTTSUI {
   createBtnGroup() {
     const btnGroup = document.createElement('div');
     btnGroup.style.display = 'flex';
+    btnGroup.style.flexDirection = 'column';
     btnGroup.style.gap = '8px';
 
     this.downloadBtn = document.createElement('button');
-    this.downloadBtn.textContent = '下载 .m4a';
+    this.downloadBtn.textContent = '下载音频';
     this.downloadBtn.disabled = true;
     this.downloadBtn.style.cssText = `
-      flex: 1;
       padding: 8px;
       background: #2196f3;
       color: white;
@@ -187,7 +197,7 @@ class DoubaoTTSUI {
       transition: all 0.2s;
     `;
     this.downloadBtn.onclick = () => {
-        if (this.onDownload) this.onDownload();
+      if (this.onDownload) this.onDownload();
     };
 
     const clearBtn = document.createElement('button');
@@ -210,6 +220,14 @@ class DoubaoTTSUI {
     btnGroup.appendChild(this.downloadBtn);
     btnGroup.appendChild(clearBtn);
     return btnGroup;
+  }
+
+  setDownloadExt(ext) {
+    this.downloadExt = ext || null;
+    if (this.downloadBtn) {
+      this.downloadBtn.textContent = this.downloadExt ? `下载 .${this.downloadExt}` : '下载音频';
+    }
+    this.updateButtons();
   }
 
   show() {
@@ -235,16 +253,21 @@ class DoubaoTTSUI {
         const kb = (sizeBytes / 1024).toFixed(1);
         const mb = (sizeBytes / 1024 / 1024).toFixed(2);
         this.info.textContent = sizeBytes > 1024 * 1024 ? `${mb} MB` : `${kb} KB`;
-        
-        if (sizeBytes > 0) {
-            this.downloadBtn.disabled = false;
-            this.downloadBtn.style.cursor = 'pointer';
-            this.downloadBtn.style.opacity = '1';
-        } else {
-            this.downloadBtn.disabled = true;
-            this.downloadBtn.style.cursor = 'not-allowed';
-            this.downloadBtn.style.opacity = '0.5';
-        }
+        this.sizeBytes = sizeBytes;
+        this.updateButtons();
+    }
+  }
+
+  updateButtons() {
+    const sizeBytes = this.sizeBytes || 0;
+    const hasData = sizeBytes > 0;
+    const hasDetected = !!this.downloadExt;
+
+    if (this.downloadBtn) {
+      const enabled = hasData && hasDetected;
+      this.downloadBtn.disabled = !enabled;
+      this.downloadBtn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+      this.downloadBtn.style.opacity = enabled ? '1' : '0.5';
     }
   }
 }
