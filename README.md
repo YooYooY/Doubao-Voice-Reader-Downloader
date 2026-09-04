@@ -12,7 +12,7 @@
 ## 🚀 安装方法
 
 ### 方式一：从 Chrome 应用商店安装
-（待发布链接）
+[Doubao TTS Downloader](https://chromewebstore.google.com/detail/%E8%B1%86%E5%8C%85%E8%AF%AD%E9%9F%B3%E4%B8%8B%E8%BD%BD%E5%8A%A9%E6%89%8B-doubao-voice-rea/aainnbhoepbegaooggodhhigfajmfede/reviews)
 
 ### 方式二：手动安装（开发者模式）
 1. 下载本仓库代码或 Clone 到本地：
