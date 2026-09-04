@@ -10,6 +10,7 @@ class DoubaoTTSUI {
     this.initScheduled = false;
     this.downloadExt = null;
     this.sizeBytes = 0;
+    this.lastInputWasKeyboard = false;
     this.init();
   }
 
@@ -185,9 +186,14 @@ class DoubaoTTSUI {
     this.downloadBtn = document.createElement('button');
     this.downloadBtn.textContent = '下载音频';
     this.downloadBtn.disabled = true;
+    const downloadBg = {
+      normal: '#2196f3',
+      hover: '#1e88e5',
+      active: '#1976d2'
+    };
     this.downloadBtn.style.cssText = `
       padding: 8px;
-      background: #2196f3;
+      background: ${downloadBg.normal};
       color: white;
       border: none;
       border-radius: 4px;
@@ -195,9 +201,34 @@ class DoubaoTTSUI {
       opacity: 0.5;
       font-weight: 500;
       transition: all 0.2s;
+      outline: none;
+      box-shadow: none;
     `;
     this.downloadBtn.onclick = () => {
       if (this.onDownload) this.onDownload();
+    };
+    this.downloadBtn.onmouseover = () => {
+      if (!this.downloadBtn.disabled) this.downloadBtn.style.background = downloadBg.hover;
+    };
+    this.downloadBtn.onmouseout = () => {
+      if (!this.downloadBtn.disabled) this.downloadBtn.style.background = downloadBg.normal;
+    };
+    this.downloadBtn.onmousedown = () => {
+      this.lastInputWasKeyboard = false;
+      if (!this.downloadBtn.disabled) {
+        this.downloadBtn.style.background = downloadBg.active;
+        this.downloadBtn.style.boxShadow = 'none';
+      }
+    };
+    this.downloadBtn.onmouseup = () => {
+      if (!this.downloadBtn.disabled) this.downloadBtn.style.background = downloadBg.hover;
+    };
+    this.downloadBtn.onfocus = () => {
+      if (this.downloadBtn.disabled) return;
+      if (this.lastInputWasKeyboard) this.downloadBtn.style.boxShadow = '0 0 0 2px rgba(33,150,243,0.35)';
+    };
+    this.downloadBtn.onblur = () => {
+      this.downloadBtn.style.boxShadow = 'none';
     };
 
     const clearBtn = document.createElement('button');
@@ -213,9 +244,26 @@ class DoubaoTTSUI {
     `;
     clearBtn.onmouseover = () => clearBtn.style.background = '#555';
     clearBtn.onmouseout = () => clearBtn.style.background = '#444';
+    clearBtn.onmousedown = () => clearBtn.style.background = '#666';
+    clearBtn.onmouseup = () => clearBtn.style.background = '#555';
     clearBtn.onclick = () => {
         if (this.onClear) this.onClear();
     };
+
+    document.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key === 'Tab') this.lastInputWasKeyboard = true;
+      },
+      true
+    );
+    document.addEventListener(
+      'mousedown',
+      () => {
+        this.lastInputWasKeyboard = false;
+      },
+      true
+    );
 
     btnGroup.appendChild(this.downloadBtn);
     btnGroup.appendChild(clearBtn);
@@ -261,10 +309,9 @@ class DoubaoTTSUI {
   updateButtons() {
     const sizeBytes = this.sizeBytes || 0;
     const hasData = sizeBytes > 0;
-    const hasDetected = !!this.downloadExt;
 
     if (this.downloadBtn) {
-      const enabled = hasData && hasDetected;
+      const enabled = hasData;
       this.downloadBtn.disabled = !enabled;
       this.downloadBtn.style.cursor = enabled ? 'pointer' : 'not-allowed';
       this.downloadBtn.style.opacity = enabled ? '1' : '0.5';

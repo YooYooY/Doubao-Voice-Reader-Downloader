@@ -7,6 +7,7 @@
   let activeWs = null;
   let detectedExt = null;
   let prefixBytes = new Uint8Array(0);
+  let pendingTimeoutId = null;
 
   function init() {
     if (!window.DoubaoTTSUI) {
@@ -49,6 +50,11 @@
       reset();
       if (ui) ui.setDownloadExt(null);
       if (ui) ui.update('音频收集中...', 0, true);
+      if (pendingTimeoutId) clearTimeout(pendingTimeoutId);
+      pendingTimeoutId = setTimeout(() => {
+        if (collecting) return;
+        if (ui) ui.update('未捕获到音频，请重试', 0, false);
+      }, 12000);
     },
     true
   );
@@ -66,6 +72,8 @@
       this.addEventListener('close', () => {
         if (activeWs !== this) return;
         collecting = false;
+        activeWs = null;
+        if (pendingTimeoutId) clearTimeout(pendingTimeoutId);
         if (ui) ui.update('音频收集完成', getTotalSize(), false);
       });
     }
@@ -86,7 +94,10 @@
     if (data instanceof Blob) {
       data
         .arrayBuffer()
-        .then((buf) => onBytes(new Uint8Array(buf)))
+        .then((buf) => {
+          if (activeWs !== ws) return;
+          onBytes(new Uint8Array(buf));
+        })
         .catch(() => {});
     }
   }
@@ -97,6 +108,7 @@
     if (!collecting) {
       collecting = true;
       pendingStartAt = 0;
+      if (pendingTimeoutId) clearTimeout(pendingTimeoutId);
       if (ui) ui.update('音频收集中...', getTotalSize(), true);
     }
 
@@ -122,15 +134,29 @@
     activeWs = null;
     detectedExt = null;
     prefixBytes = new Uint8Array(0);
+    if (pendingTimeoutId) clearTimeout(pendingTimeoutId);
+    pendingTimeoutId = null;
   }
 
   function appendPrefix(bytes) {
-    const max = 4096;
-    if (prefixBytes.length >= max) return;
-    const take = bytes.length > max ? bytes.subarray(0, max) : bytes;
-    const combined = new Uint8Array(Math.min(prefixBytes.length + take.length, max));
-    combined.set(prefixBytes, 0);
-    combined.set(take.subarray(0, combined.length - prefixBytes.length), prefixBytes.length);
+    const max = 65536;
+    if (!bytes || bytes.length === 0) return;
+
+    if (prefixBytes.length === 0) {
+      prefixBytes = bytes.length > max ? bytes.subarray(bytes.length - max) : bytes.slice();
+      return;
+    }
+
+    const take = bytes.length > max ? bytes.subarray(bytes.length - max) : bytes;
+    const needed = Math.min(prefixBytes.length + take.length, max);
+    const combined = new Uint8Array(needed);
+
+    const keepFromOld = Math.max(0, needed - take.length);
+    if (keepFromOld > 0) {
+      combined.set(prefixBytes.subarray(prefixBytes.length - keepFromOld), 0);
+    }
+
+    combined.set(take.subarray(take.length - (needed - keepFromOld)), keepFromOld);
     prefixBytes = combined;
   }
 
@@ -143,24 +169,35 @@
 
   function exportAudio() {
     if (!ui) return;
-    if (detectedExt !== 'mp3' && detectedExt !== 'ogg') {
-      ui.update('仅支持下载 .ogg / .mp3', getTotalSize(), false);
-      return;
-    }
-
     const bytes = concatBytes(audioChunks);
     if (!bytes || bytes.length === 0) return;
 
-    if (detectedExt === 'mp3') {
+    const ext = detectedExt || detectExt(bytes) || guessByCleaning(bytes);
+    if (ui) ui.setDownloadExt(ext === 'mp3' || ext === 'ogg' ? ext : null);
+
+    if (ext === 'mp3') {
       const cleaned = extractMp3(bytes);
       if (!cleaned || cleaned.length === 0) return;
       downloadBytes(cleaned, 'audio/mpeg', 'mp3');
       return;
     }
 
-    const cleaned = extractOgg(bytes);
-    if (!cleaned || cleaned.length === 0) return;
-    downloadBytes(cleaned, 'audio/ogg', 'ogg');
+    if (ext === 'ogg') {
+      const cleaned = extractOgg(bytes);
+      if (!cleaned || cleaned.length === 0) return;
+      downloadBytes(cleaned, 'audio/ogg', 'ogg');
+      return;
+    }
+
+    ui.update('未识别到可下载的音频（请重试）', getTotalSize(), false);
+  }
+
+  function guessByCleaning(bytes) {
+    const mp3 = extractMp3(bytes);
+    if (mp3 && mp3.length > 0) return 'mp3';
+    const ogg = extractOgg(bytes);
+    if (ogg && ogg.length > 0) return 'ogg';
+    return null;
   }
 
   function downloadBytes(bytes, mime, ext) {
